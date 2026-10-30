@@ -40,10 +40,12 @@ function qweatherRequest(host, path) {
         res.on('data', (chunk) => chunks.push(chunk));
         res.on('end', () => {
           const buffer = Buffer.concat(chunks);
-          const encoding = res.headers['content-encoding'];
+          const encoding = (res.headers['content-encoding'] || '').toLowerCase();
+          // 优先按响应头判断，否则按字节魔数兜底（防止响应头丢失导致解压失败）
+          const isGzip = encoding === 'gzip' || (buffer[0] === 0x1f && buffer[1] === 0x8b);
           let body;
           try {
-            if (encoding === 'gzip') {
+            if (isGzip) {
               body = zlib.gunzipSync(buffer).toString('utf8');
             } else if (encoding === 'deflate') {
               body = zlib.inflateSync(buffer).toString('utf8');
