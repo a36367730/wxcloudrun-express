@@ -50,6 +50,35 @@ app.get("/api/wx_openid", async (req, res) => {
   }
 });
 
+// 健康检查（供小程序服务名探测：必须返回 service: 'fishing-weather-host' 才算命中）
+app.get("/healthz", (req, res) => {
+  res.send({
+    service: "fishing-weather-host",
+    status: "ok",
+    keyConfigured: !!weather.getKey(),
+  });
+});
+
+// ===== 通用和风天气代理 /api/q/* =====
+// 把和风原始 path（含 /v7、/geo/v2、/weatheralert/v1 等）原样转发到候选 Host。
+// 前端只需拼 path：/api/q/v7/weather/now、/api/q/geo/v2/city/lookup、
+//   /api/q/v7/historical/weather、/api/q/v7/indices/1d、
+//   /api/q/weatheralert/v1/current/{lat}/{lon} ...
+// 成功返回 { code: 0, data: <和风原始 JSON> }；代理层失败返回 { code: 1, msg }。
+app.get("/api/q/*", async (req, res) => {
+  try {
+    const sub = "/" + (req.params[0] || "");
+    const qs = Object.keys(req.query)
+      .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(req.query[k])}`)
+      .join("&");
+    const full = sub + (qs ? "?" + qs : "");
+    const data = await weather.requestFirstSuccess(full);
+    res.send({ code: 0, data });
+  } catch (e) {
+    res.status(502).send({ code: 1, msg: e.message });
+  }
+});
+
 // ===== 和风天气（QWeather）接口 =====
 // location 格式：经度,纬度（如 117.30,39.88）或 LocationID
 // 示例：/api/weather/now?location=117.30,39.88
