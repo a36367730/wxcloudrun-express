@@ -83,18 +83,21 @@ function isSuccess(data) {
  * 全部失败时抛出最后一个错误。
  */
 async function requestFirstSuccess(targets, pathFor) {
+  const tried = [];
   let last = null;
   for (const t of targets) {
     try {
       const data = await rawRequest(t.host, withKey(`${t.prefix}${pathFor}`));
+      tried.push(`${t.host}${t.prefix} => ${data && data.code ? 'code:' + data.code : '?'}`);
       if (isSuccess(data)) return data;
       last = data; // 可能是 host 不匹配（Invalid Host / 403），尝试下一个
     } catch (e) {
+      tried.push(`${t.host}${t.prefix} => ERR:${e.message.slice(0, 80)}`);
       last = e;
     }
   }
   if (last instanceof Error) throw last;
-  throw new Error('和风天气所有候选 Host 均失败：' + JSON.stringify(last).slice(0, 200));
+  throw new Error('和风天气所有候选 Host 均失败 [' + tried.join(' | ') + ']');
 }
 
 function withKey(queryPath) {
