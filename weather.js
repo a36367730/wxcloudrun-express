@@ -10,6 +10,7 @@
  */
 
 const https = require('https');
+const zlib = require('zlib');
 
 const WEATHER_HOST = process.env.QWEATHER_HOST || 'devapi.qweather.com';
 const GEO_HOST = process.env.QWEATHER_GEO_HOST || 'geoapi.qweather.com';
@@ -28,13 +29,33 @@ function qweatherRequest(host, path) {
         hostname: host,
         path,
         method: 'GET',
-        headers: { 'User-Agent': 'wxcloudrun-express/weather' },
+        headers: {
+          'User-Agent': 'wxcloudrun-express/weather',
+          'Accept-Encoding': 'gzip, deflate',
+        },
         timeout: 8000,
       },
       (res) => {
-        let body = '';
-        res.on('data', (chunk) => (body += chunk));
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
         res.on('end', () => {
+          const buffer = Buffer.concat(chunks);
+          const encoding = res.headers['content-encoding'];
+          let body;
+          try {
+            if (encoding === 'gzip') {
+              body = zlib.gunzipSync(buffer).toString('utf8');
+            } else if (encoding === 'deflate') {
+              body = zlib.inflateSync(buffer).toString('utf8');
+            } else {
+              body = buffer.toString('utf8');
+            }
+          } catch (e) {
+            return reject(new Error('解压和风天气返回失败：' + e.message));
+          }
+          if (!body) {
+            return reject(new Error('和风天气返回为空（HTTP ' + res.statusCode + '）'));
+          }
           try {
             resolve(JSON.parse(body));
           } catch (e) {
