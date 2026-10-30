@@ -17,6 +17,10 @@ function getKey() {
   return (process.env.QWEATHER_KEY || '').trim();
 }
 
+// 默认项目专属 Host（和风「开发者信息」页的 API Host，无需再配环境变量即可生效；
+// 仍可用 QWEATHER_HOST / QWEATHER_GEO_HOST 环境变量覆盖）。
+const PROJECT_HOST = 'kb7p45c2pa.re.qweatherapi.com';
+
 /** 原始请求：给定 host + 完整 path，返回解压并解析后的 JSON */
 function rawRequest(host, path) {
   return new Promise((resolve, reject) => {
@@ -102,24 +106,29 @@ function withKey(queryPath) {
   return `${queryPath}${sep}key=${encodeURIComponent(key)}`;
 }
 
-// 天气/常规 API 候选 Host（顺序：自定义 -> 新版标准 -> 旧版开发版）
+// 天气/常规 API 候选 Host（顺序：默认项目专属 -> 自定义 -> 新版标准 -> 旧版开发版）
 const WEATHER_TARGETS = (() => {
   const custom = (process.env.QWEATHER_HOST || '').trim();
   const list = [];
-  if (custom) list.push({ host: custom, prefix: '/v7' });
+  if (PROJECT_HOST) list.push({ host: PROJECT_HOST, prefix: '/v7' });
+  if (custom && custom !== PROJECT_HOST) list.push({ host: custom, prefix: '/v7' });
   list.push({ host: 'api.qweather.com', prefix: '/v7' });
   list.push({ host: 'devapi.qweather.com', prefix: '/v7' });
   return list;
 })();
 
-// GeoAPI 候选 Host（顺序：自定义 Geo Host -> 通用自定义 Host(项目专属,两种前缀都试) -> 新版 /geo/v2 -> 旧版 /v2）
+// GeoAPI 候选 Host（顺序：默认项目专属(两种前缀都试) -> 自定义 Geo Host -> 通用自定义 Host -> 新版 /geo/v2 -> 旧版 /v2）
 const GEO_TARGETS = (() => {
   const custom = (process.env.QWEATHER_GEO_HOST || '').trim();
   const customMain = (process.env.QWEATHER_HOST || '').trim();
   const list = [];
-  if (custom) list.push({ host: custom, prefix: '/v2' });
-  if (customMain) {
+  if (PROJECT_HOST) {
     // 项目专属 Host 同时承载天气与 GeoAPI，路径前缀两种都试
+    list.push({ host: PROJECT_HOST, prefix: '/geo/v2' });
+    list.push({ host: PROJECT_HOST, prefix: '/v2' });
+  }
+  if (custom) list.push({ host: custom, prefix: '/v2' });
+  if (customMain && customMain !== PROJECT_HOST) {
     list.push({ host: customMain, prefix: '/geo/v2' });
     list.push({ host: customMain, prefix: '/v2' });
   }
