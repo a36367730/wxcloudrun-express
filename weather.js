@@ -88,7 +88,13 @@ async function requestFirstSuccess(targets, pathFor) {
   for (const t of targets) {
     try {
       const data = await rawRequest(t.host, withKey(`${t.prefix}${pathFor}`));
-      tried.push(`${t.host}${t.prefix} => ${data && data.code ? 'code:' + data.code : '?'}`);
+      const tag =
+        data && data.code
+          ? 'code:' + data.code
+          : data && data.error
+          ? 'ERR' + data.error.status + ' ' + (data.error.title || '')
+          : '?';
+      tried.push(`${t.host}${t.prefix} => ${tag}`);
       if (isSuccess(data)) return data;
       last = data; // 可能是 host 不匹配（Invalid Host / 403），尝试下一个
     } catch (e) {
