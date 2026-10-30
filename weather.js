@@ -112,11 +112,17 @@ const WEATHER_TARGETS = (() => {
   return list;
 })();
 
-// GeoAPI 候选 Host（顺序：自定义 -> 新版 /geo/v2 -> 旧版 /v2）
+// GeoAPI 候选 Host（顺序：自定义 Geo Host -> 通用自定义 Host(项目专属,两种前缀都试) -> 新版 /geo/v2 -> 旧版 /v2）
 const GEO_TARGETS = (() => {
   const custom = (process.env.QWEATHER_GEO_HOST || '').trim();
+  const customMain = (process.env.QWEATHER_HOST || '').trim();
   const list = [];
   if (custom) list.push({ host: custom, prefix: '/v2' });
+  if (customMain) {
+    // 项目专属 Host 同时承载天气与 GeoAPI，路径前缀两种都试
+    list.push({ host: customMain, prefix: '/geo/v2' });
+    list.push({ host: customMain, prefix: '/v2' });
+  }
   list.push({ host: 'api.qweather.com', prefix: '/geo/v2' });
   list.push({ host: 'geoapi.qweather.com', prefix: '/v2' });
   return list;
